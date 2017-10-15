@@ -386,7 +386,18 @@ class Hanabi:
                         clues[card.id] = clues[card.id].union([(move.type, move.param, False)])
             else:
                 assert False
-            clues_history.append({card_id: [f'{type[0]}{"=" if pos else "!"}{param!s}' for (type, param, pos) in card_clues] for (card_id, card_clues) in {**clues_rank, **clues_suit}.items()})
+            if only_pos:
+                def get_param(clues, card_id):
+                    c = clues.get(card_id, None)
+                    if c is None:
+                        return '?'
+                    else:
+                        return list(c)[0][1]
+                    
+                clues_history.append([Card(card_id, KnownCard(get_param(clues_suit, card_id) ,get_param(clues_rank, card_id)))
+                                      for card_id in sorted(list({**clues_rank, **clues_suit}.keys()))])
+            else:
+                clues_history.append({card_id: [f'{type[0]}{"=" if pos else "!"}{param!s}' for (type, param, pos) in card_clues] for (card_id, card_clues) in {**clues_rank, **clues_suit}.items()})
         return clues_history
 
     def describe(self):
