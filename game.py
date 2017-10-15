@@ -180,8 +180,10 @@ class Hanabi:
         return card.hidden()
 
     def is_game_over(self) -> bool:
-        if self.end_mode == EndMode.endless and not [i for i in self.hands[(self.current_player + 1) % len(self.hands)] if i]:
-            return True
+        if self.end_mode == EndMode.endless:
+            next_player_hand = self.hands[(self.current_player + 1) % len(self.hands)]
+            if not [card for card in next_player_hand if card]:
+                return True
         return (self.lives == 0 or self.final_player == self.current_player or
                 all(slot == len(self.rules.ranks) for slot in self.slots))
 
@@ -350,15 +352,42 @@ class Hanabi:
         last_args = [None] * 7
         suits = [Suit(s) for s in range(self.rules.suits)]
         ranks = self.rules.ranks
-        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}'
-        print(f_str.format('', str(self.end_mode), str(suits), str(ranks), '', '',''))
+        f_str = '{!s:<50}{!s:<42}{!s:<17}{!s:<17}{!s:>2}{!s:>2}{!s:>4}'
+        print(f_str.format('', self.end_mode, suits, ranks, '', '',''))
         print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's'))
         for move, hand, slots, max_rank, (clues, lives) in zip(
                 self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history()):
             this_args = move, hand, slots, max_rank, clues, lives, sum(slots)
-            print(f_str.format(*[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)]))
+            print(f_str.format(*[last if last and pr==cu else cu for (pr, cu) in zip(last_args, this_args)]))
             last_args = this_args
 
+
+    def clues_history(self, only_pos=True):
+        clues_history = []
+        from collections import defaultdict
+        clues_rank = defaultdict(set)
+        clues_suit = defaultdict(set)
+        for move in self.log:
+            if isinstance(move, ResolvedDraw):
+                pass
+            elif isinstance(move, (ResolvedPlay, ResolvedDiscard)):
+                if move.card.id in clues_rank:
+                    del clues_rank[move.card.id]
+                if move.card.id in clues_suit:
+                    del clues_suit[move.card.id]
+            elif isinstance(move, ResolvedClue):
+                clues = {'suit': clues_suit, 'rank': clues_rank}[move.type]
+                for card in move.cards:
+                    clues[card.id] = set([(move.type, move.param, True)])
+                for card in move.cards_neg:
+                    if only_pos or (card.id in clues and list(clues[card.id])[0][2]):
+                        pass
+                    else:
+                        clues[card.id] = clues[card.id].union([(move.type, move.param, False)])
+            else:
+                assert False
+            clues_history.append({card_id: [f'{type[0]}{"=" if pos else "!"}{param!s}' for (type, param, pos) in card_clues] for (card_id, card_clues) in {**clues_rank, **clues_suit}.items()})
+        return clues_history
 
     def describe(self):
         # deck_start
