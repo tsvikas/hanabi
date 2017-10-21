@@ -158,6 +158,7 @@ class Hanabi:
         self.hands_start = None
         self.tokens = self.rules.max_tokens
         self.log = []
+        self.notes = []
         self.player_states = [None] * len(players)
 
         self.final_player = None
@@ -176,7 +177,8 @@ class Hanabi:
                 if not self.allow_cheats:
                     hands[i] = [card.hidden() for card in hands[i]]
                 player = self.players[self.current_player]
-                self.player_states[i], move = player(self.player_states[i], self.log, hands, self.rules, self.tokens, self.slots, self.discard_pile)
+                self.player_states[i], move, note = player(self.player_states[i], self.log, hands, self.rules, self.tokens, self.slots, self.discard_pile)
+                self.notes.append(note)
                 self.resolve(tuple_to_move(move))
                 if self.is_game_over():
                     return self.score
@@ -385,15 +387,15 @@ class Hanabi:
         last_args = [None] * 7
         suits = [Suit(s) for s in range(self.rules.suits)]
         ranks = self.rules.ranks
-        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}'
+        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {}'
         if thin:
             f_str = '{:<50}'
-        print(f_str.format('', str(self.end_mode), str(suits), str(ranks), '', '',''))
-        print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's'))
-        for move, hand, slots, max_rank, (clues, lives) in zip(
-                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history()):
+        print(f_str.format('', str(self.end_mode), str(suits), str(ranks), '', '','',''))
+        print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note'))
+        for move, hand, slots, max_rank, (clues, lives), note in zip(
+                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history(), self.notes):
             this_args = move, hand, slots, max_rank, clues, lives, sum(slots)
-            print(f_str.format(*[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)]))
+            print(f_str.format(*[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)], note))
             last_args = this_args
         if thin:
             self.describe()

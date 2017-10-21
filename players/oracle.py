@@ -21,7 +21,7 @@ def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
             if playable_card is None or playable_card.data.rank < card.data.rank:
                 playable_card = card
     if playable_card is not None:
-        return state, Play.create(playable_card.id)
+        return state, Play.create(playable_card.id), 'playable'
 
     def get_card_to_discard():
         # discard already played
@@ -61,20 +61,20 @@ def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
     if tokens.clues < rules.max_tokens.clues:
         card = get_card_to_discard()
         if card is not None:
-            return state, Discard.create(card)
+            return state, Discard.create(card), 'discardable'
 
     # nothing useful to do
     # try to pass with useless clue
     if tokens.clues > 0:
         player = (my_id + 1) % len(hands)
         if hands[player]:
-            return state, Clue.create(player, 'suit', hands[player][0].data.suit)
+            return state, Clue.create(player, 'suit', hands[player][0].data.suit), 'pass/d'
 
     # try to pass with false play
     if tokens.lives > 1:
         card = get_card_to_discard()
         if card is not None:
-            return state, Play.create(card)
+            return state, Play.create(card), 'pass/p'
 
     # you have to throw something useful. try the farthest from the suit
     # look for an expandable card
@@ -96,7 +96,7 @@ def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
 
     # throw by discard
     if tokens.clues < rules.max_tokens.clues:
-        return state, Discard.create(throw.id)
+        return state, Discard.create(throw.id), 'throw/d'
 
     # throw by false play
-    return state, Play.create(throw.id)
+    return state, Play.create(throw.id), 'throw/p'
