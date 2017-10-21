@@ -52,8 +52,7 @@ def main():
     if args.times > 1:
         return run_game_n_times(players_list, t=args.times, **h_args)
     else:
-#        print( args.target_score)
-        return run_game_once(players_list, **h_args, target_score=args.target_score)
+        return run_game_once(players_list, target_score=args.target_score, **h_args)
 
 if __name__ == '__main__':
     ret = main()
