@@ -16,12 +16,28 @@ class IllegalMove(Exception):
 
 
 class Suit(int):
+    @classmethod
+    def from_str(cls, s):
+        if len(s) == 1:
+            for c in ['a', 'A']:
+                d = ord(s) - ord(c)
+                if 0 <= d <= 10:
+                    return cls(d)
+        return cls(int(s))
     def __str__(self):
         return chr(ord("A") + self)
     __repr__ = __str__
 
 
 class Rank(int):
+    @classmethod
+    def from_str(cls, s):
+        if len(s) == 1:
+            for c in ['1']:
+                d = ord(s) - ord(c)
+                if 0 <= d <= 10:
+                    return cls(d)
+        return cls(int(s) - 1)
     def __str__(self):
         return chr(ord("1") + self)
     __repr__ = __str__
@@ -142,6 +158,7 @@ class Hanabi:
         self.hands_start = None
         self.tokens = self.rules.max_tokens
         self.log = []
+        self.notes = []
         self.player_states = [None] * len(players)
 
         self.final_player = None
@@ -160,7 +177,8 @@ class Hanabi:
                 if not self.allow_cheats:
                     hands[i] = [card.hidden() for card in hands[i]]
                 player = self.players[self.current_player]
-                self.player_states[i], move = player(self.player_states[i], self.log, hands, self.rules, self.tokens, self.slots, self.discard_pile)
+                self.player_states[i], move, note = player(self.player_states[i], self.log, hands, self.rules, self.tokens, self.slots, self.discard_pile)
+                self.notes.append(note)
                 self.resolve(tuple_to_move(move))
                 if self.is_game_over():
                     return self.score
@@ -178,6 +196,7 @@ class Hanabi:
         for player in self.iterate_players():
             cards = [self.take_card_from_deck_to_hand() for _i in range(self.rules.cards_per_player)]
             self.log.append(ResolvedDraw.create(self.current_player, cards))
+            self.notes.append('deal')
             if any(card is None for card in cards):
                 raise RuntimeError("not enough cards to deal")
         self.hands_start = tuple([hand.copy() for hand in self.hands])
@@ -369,15 +388,15 @@ class Hanabi:
         last_args = [None] * 7
         suits = [Suit(s) for s in range(self.rules.suits)]
         ranks = self.rules.ranks
-        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}'
+        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {}'
         if thin:
             f_str = '{:<50}'
-        print(f_str.format('', str(self.end_mode), str(suits), str(ranks), '', '',''))
-        print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's'))
-        for move, hand, slots, max_rank, (clues, lives) in zip(
-                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history()):
+        print(f_str.format('', str(self.end_mode), str(suits), str(ranks), '', '','',''))
+        print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note'))
+        for move, hand, slots, max_rank, (clues, lives), note in zip(
+                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history(), self.notes):
             this_args = move, hand, slots, max_rank, clues, lives, sum(slots)
-            print(f_str.format(*[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)]))
+            print(f_str.format(*[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)], note))
             last_args = this_args
         if thin:
             self.describe()

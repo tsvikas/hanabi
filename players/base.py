@@ -2,7 +2,7 @@ import random
 from pprint import pprint
 from game import Clue, Play, Discard
 
-from game import Card, Tokens, Rules
+from game import Card, Tokens, Rules, Suit, Rank
 from typing import NamedTuple, List, Tuple, Callable
 
 
@@ -31,13 +31,13 @@ def make_io_player(name: str) -> Callable:
                 return state, Clue.create(
                     int(player),
                     {'s': 'suit', 'n': 'rank'}[clue_type],
-                    int(param))
+                    {'s': Suit, 'n': Rank}[clue_type].from_str(param)), ''
             elif move[0] == 'p':
                 _, card_id = move
-                return state, Play.create(int(card_id))
+                return state, Play.create(int(card_id)), ''
             elif move[0] == 'd':
                 _, card_id = move
-                return state, Discard.create(int(card_id))
+                return state, Discard.create(int(card_id)), ''
             else:
                 raise ValueError("not a valid move type")
         except (ValueError, KeyError):
@@ -70,12 +70,12 @@ def random_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
     action = random.choice(possible_actions)
 
     if action == Play:
-        return state, Play.create(random.choice(hands[my_id]).id)
+        return state, Play.create(random.choice(hands[my_id]).id), ''
     if action == Discard:
-        return state, Discard.create(random.choice(hands[my_id]).id)
+        return state, Discard.create(random.choice(hands[my_id]).id), ''
     if action == Clue:
         player = random.choice([i for i in range(len(hands)) if i != my_id])
         clue_type = random.choice(['suit', 'rank'])
         return state, Clue.create(
             player, clue_type,
-            getattr(random.choice(hands[player]).data, clue_type))
+            getattr(random.choice(hands[player]).data, clue_type)), ''

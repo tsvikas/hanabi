@@ -22,7 +22,7 @@ def naive2_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
     # Its better to play than hint
     if hinted_cards:
         play_card = max(hinted_cards)
-        return state, Play.create(play_card)
+        return state, Play.create(play_card), ''
 
     # Its better to hint than discard
     if tokens.clues > 0:
@@ -52,11 +52,11 @@ def naive2_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
                     clue = Clue.create(player, 'suit', suit)
                     clue_rank = slots[suit]
             if clue:
-                return state, clue
+                return state, clue, ''
 
     # Its better to discard then playing like an idiot
     if tokens.clues < rules.max_tokens.clues:
-        return state, Discard.create(min(my_card_ids))
+        return state, Discard.create(min(my_card_ids)), ''
 
     # If all else fails, play like an idiot
-    return state, Play.create(max(my_card_ids))
+    return state, Play.create(max(my_card_ids)), 'idiot'
