@@ -402,7 +402,7 @@ class Hanabi:
             if last_args is None:
                 last_args = this_args
             print(f_str.format(
-                    move, hand, 
+                    str(move), str(hand),
                     *[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)], 
                     note))
             last_args = this_args
