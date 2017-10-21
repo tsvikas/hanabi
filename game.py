@@ -16,12 +16,28 @@ class IllegalMove(Exception):
 
 
 class Suit(int):
+    @classmethod
+    def from_str(cls, s):
+        if len(s) == 1:
+            for c in ['a', 'A']:
+                d = ord(s) - ord(c)
+                if 0 <= d <= 10:
+                    return cls(d)
+        return cls(int(s))
     def __str__(self):
         return chr(ord("A") + self)
     __repr__ = __str__
 
 
 class Rank(int):
+    @classmethod
+    def from_str(cls, s):
+        if len(s) == 1:
+            for c in ['1']:
+                d = ord(s) - ord(c)
+                if 0 <= d <= 10:
+                    return cls(d)
+        return cls(int(s) - 1)
     def __str__(self):
         return chr(ord("1") + self)
     __repr__ = __str__

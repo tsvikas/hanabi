@@ -44,7 +44,7 @@ def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
         knowns = [card.data for card in my_hand]
         if len(set(knowns)) < len(knowns):
             for i, known in enumerate(knowns):
-                for known2 in knowns[i:]:
+                for known2 in knowns[i+1:]:
                     if known == known2:
                         return my_hand[i].id
         # discard duplicates with others
@@ -77,13 +77,22 @@ def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
             return state, Play.create(card)
 
     # you have to throw something useful. try the farthest from the suit
+    # look for an expandable card
     diff = None
     throw = None
     for card in my_hand:
         card_diff = card.data.rank - slots[card.data.suit]
         if diff is None or card_diff > diff:
-            diff = card_diff
-            throw = card
+            if rules.ranks[card.data.rank] - discard_pile[card.data.suit][card.data.rank] > 1:
+                diff = card_diff
+                throw = card
+    # look for a non expandable card, if you must (BOO!)
+    if diff is None:
+        for card in my_hand:
+            card_diff = card.data.rank - slots[card.data.suit]
+            if diff is None or card_diff > diff:
+                diff = card_diff
+                throw = card
 
     # throw by discard
     if tokens.clues < rules.max_tokens.clues:

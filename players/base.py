@@ -2,7 +2,7 @@ import random
 from pprint import pprint
 from game import Clue, Play, Discard
 
-from game import Card, Tokens, Rules
+from game import Card, Tokens, Rules, Suit, Rank
 from typing import NamedTuple, List, Tuple, Callable
 
 
@@ -31,7 +31,7 @@ def make_io_player(name: str) -> Callable:
                 return state, Clue.create(
                     int(player),
                     {'s': 'suit', 'n': 'rank'}[clue_type],
-                    int(param))
+                    {'s': Suit, 'n': Rank}[clue_type].from_str(param))
             elif move[0] == 'p':
                 _, card_id = move
                 return state, Play.create(int(card_id))
