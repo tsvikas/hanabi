@@ -196,6 +196,7 @@ class Hanabi:
         for player in self.iterate_players():
             cards = [self.take_card_from_deck_to_hand() for _i in range(self.rules.cards_per_player)]
             self.log.append(ResolvedDraw.create(self.current_player, cards))
+            self.notes.append('deal')
             if any(card is None for card in cards):
                 raise RuntimeError("not enough cards to deal")
         self.hands_start = tuple([hand.copy() for hand in self.hands])
