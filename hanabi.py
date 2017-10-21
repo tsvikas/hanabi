@@ -46,7 +46,7 @@ def main():
         players_list.pop()
         players_list.append(players.make_io_player('Human Player'))
 
-    h_args = dict(endmode = EndMode[args.end_mode], 
+    h_args = dict(end_mode = EndMode[args.end_mode], 
                   suits = args.suits, 
                   allow_cheats = args.allow_cheats)
     if args.times > 1:
