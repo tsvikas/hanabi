@@ -385,18 +385,26 @@ class Hanabi:
         return max_rank_history
 
     def print_history(self, last='.', thin=False):
-        last_args = [None] * 7
         suits = [Suit(s) for s in range(self.rules.suits)]
         ranks = self.rules.ranks
         f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {}'
+        titles1 = ['', str(self.end_mode), str(suits), str(ranks), '', '', '', '']
+        titles2 = ['Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note']
         if thin:
             f_str = '{:<50}'
-        print(f_str.format('', str(self.end_mode), str(suits), str(ranks), '', '','',''))
-        print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note'))
+        print(f_str.format(*titles1))
+        print(f_str.format(*titles2))
+        last_args = None
         for move, hand, slots, max_rank, (clues, lives), note in zip(
-                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history(), self.notes):
-            this_args = move, hand, slots, max_rank, clues, lives, sum(slots)
-            print(f_str.format(*[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)], note))
+                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), 
+                self.tokens_history(), self.notes):
+            this_args = slots, max_rank, clues, lives, sum(slots)
+            if last_args is None:
+                last_args = this_args
+            print(f_str.format(
+                    move, hand, 
+                    *[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)], 
+                    note))
             last_args = this_args
         if thin:
             self.describe()
