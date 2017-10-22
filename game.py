@@ -3,6 +3,7 @@ from pprint import pprint
 from collections import namedtuple
 from enum import Enum
 from typing import List, NamedTuple, Tuple
+from colors import color, strip_color
 
 
 class EndMode(Enum):
@@ -24,8 +25,9 @@ class Suit(int):
                 if 0 <= d <= 10:
                     return cls(d)
         return cls(int(s))
+
     def __str__(self):
-        return chr(ord("A") + self)
+        return color(chr(ord("A") + self), fg=self+1)
     __repr__ = __str__
 
 
@@ -38,6 +40,7 @@ class Rank(int):
                 if 0 <= d <= 10:
                     return cls(d)
         return cls(int(s) - 1)
+
     def __str__(self):
         return chr(ord("1") + self)
     __repr__ = __str__
@@ -45,12 +48,13 @@ class Rank(int):
 
 class KnownCard(namedtuple('KnownCard', 'suit rank')):
     def __repr__(self):
-        return f':{self.suit}{self.rank}'
+        return f':{self.suit}' + color(f'{self.rank}', fg=self.suit+1)
 
 
 class Card(namedtuple('Card', 'id data')):
     def __repr__(self):
         return f'#{self.id:02}{self.data or ""}'
+
     def hidden(self):
         return self._replace(data=None)
 
@@ -220,6 +224,7 @@ class Hanabi:
     def is_game_over(self) -> bool:
         if self.end_mode == EndMode.endless and not [i for i in self.hands[(self.current_player + 1) % len(self.hands)] if i]:
             return True
+
         return (self.lives == 0 or self.final_player == self.current_player or
                 all(slot == len(self.rules.ranks) for slot in self.slots))
 
@@ -385,26 +390,41 @@ class Hanabi:
         return max_rank_history
 
     def print_history(self, last='.', thin=False):
+        def colorize_bg(s, bg):
+            bgcolor, reset = color(',', bg=bg).split(',')
+            return bgcolor + (reset + bgcolor).join(s.split(reset)) + reset
+
+        def format_color(f_str, values, bg):
+            bw_str = f_str.format(*[strip_color(v) for v in values])
+            col_str = bw_str
+            for v in values:
+                col_str = col_str.replace(strip_color(v), v)
+            return colorize_bg(col_str, bg=bg)
+
         suits = [Suit(s) for s in range(self.rules.suits)]
         ranks = self.rules.ranks
-        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {}'
+        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {:<40}'
         titles1 = ['', str(self.end_mode), str(suits), str(ranks), '', '', '', '']
         titles2 = ['Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note']
         if thin:
             f_str = '{:<50}'
-        print(f_str.format(*titles1))
-        print(f_str.format(*titles2))
+
+        print(format_color(f_str, titles1, bg=235))
+        print(format_color(f_str, titles2, bg=235))
         last_args = None
-        for move, hand, slots, max_rank, (clues, lives), note in zip(
-                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), 
+        for (i, move), hand, slots, max_rank, (clues, lives), note in zip(
+                enumerate(self.log), self.hands_history(), self.slots_history(), self.max_rank_history(),
                 self.tokens_history(), self.notes):
             this_args = slots, max_rank, clues, lives, sum(slots)
             if last_args is None:
-                last_args = this_args
-            print(f_str.format(
-                    str(move), str(hand),
-                    *[last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)], 
-                    note))
+                last_args = [''] * len(this_args)
+            p_args = [last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)]
+            print_t = format_color(
+                    f_str,
+                    [str(move), str(hand)] + p_args + [note],
+                    bg=232 if (i // len(self.hands)) % 2 == 0 else 235
+            )
+            print(print_t)
             last_args = this_args
         if thin:
             self.describe()
