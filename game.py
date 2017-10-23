@@ -3,6 +3,7 @@ from pprint import pprint
 from collections import namedtuple
 from enum import Enum
 from typing import List, NamedTuple, Tuple
+from colors import color, strip_color
 
 
 class EndMode(Enum):
@@ -10,32 +11,57 @@ class EndMode(Enum):
     endless = 2
     fair = 3
 
+
 class IllegalMove(Exception):
     pass
 
+
 class Suit(int):
+    @classmethod
+    def from_str(cls, s):
+        if len(s) == 1:
+            for c in ['a', 'A']:
+                d = ord(s) - ord(c)
+                if 0 <= d <= 10:
+                    return cls(d)
+        return cls(int(s))
+
     def __str__(self):
-        return chr(ord("A") + self)
+        return color(chr(ord("A") + self), fg=self+1)
     __repr__ = __str__
 
+
 class Rank(int):
+    @classmethod
+    def from_str(cls, s):
+        if len(s) == 1:
+            for c in ['1']:
+                d = ord(s) - ord(c)
+                if 0 <= d <= 10:
+                    return cls(d)
+        return cls(int(s) - 1)
+
     def __str__(self):
         return chr(ord("1") + self)
     __repr__ = __str__
 
+
 class KnownCard(namedtuple('KnownCard', 'suit rank')):
     def __repr__(self):
-        return f':{self.suit}{self.rank}'
+        return f':{self.suit}' + color(f'{self.rank}', fg=self.suit+1)
+
 
 class Card(namedtuple('Card', 'id data')):
     def __repr__(self):
         return f'#{self.id:02}{self.data or ""}'
+
     def hidden(self):
         return self._replace(data=None)
 
 
 class Tokens(namedtuple('Tokens', 'clues lives')):
     pass
+
 
 class Rules(namedtuple('Rules', 'max_tokens suits ranks cards_per_player')):
     pass
@@ -45,29 +71,38 @@ class Move():
     @property
     def move_prefix(self):
         return f'{self.move} '
+
     @property
     def resolved_prefix(self):
         return f'{self.cur_player}>{self.move} '
+
     @classmethod
     def create(cls, *args, **kwargs):
         return cls(cls.identifier, *args, **kwargs)
 
+
 class Clue(namedtuple('Clue', 'move player type param'), Move):
     identifier = 'c'
+
     def __repr__(self):
         return self.move_prefix + f'P={self.player} {self.type}={self.param}'
 
+
 class Play(namedtuple('Play', 'move card_id'), Move):
     identifier = 'p'
+
     def __repr__(self):
         return self.move_prefix + f'{self.card_id}'
 
+
 class Discard(namedtuple('Discard', 'move card_id'), Move):
     identifier = 'd'
+
     def __repr__(self):
         return self.move_prefix + f'{self.card_id}'
 
 IDENTIFIER_TO_MOVE = {cls.identifier: cls for cls in [Clue, Play, Discard]}
+
 
 def tuple_to_move(tup: Tuple) -> NamedTuple:
     return IDENTIFIER_TO_MOVE[tup[0]]._make(tup)
@@ -77,26 +112,30 @@ class ResolvedClue(namedtuple('ResolvedClue', 'move cur_player player type param
     def __repr__(self):
         return self.resolved_prefix + f'player={self.player} {self.type}={self.param} {self.cards} {self.cards_neg}'
 
+
 class ResolvedPlay(namedtuple('ResolvedPlay', 'move cur_player card new_card is_success'), Play):
     @property
     def card_id(self):  # overwrite the parent property
         return self.card.id
+
     def __repr__(self):
         return self.resolved_prefix + f'{self.card}{"+" if self.is_success else "-"} {self.new_card}'
+
 
 class ResolvedDiscard(namedtuple('ResolvedDiscard', 'move cur_player card new_card'), Discard):
     @property
     def card_id(self):  # overwrite the parent property
         return self.card.id
+
     def __repr__(self):
         return self.resolved_prefix + f'{self.card}  {self.new_card}'
-    
+
+
 class ResolvedDraw(namedtuple('ResolvedDraw___', 'move cur_player cards'), Move):
     identifier = 'n'
+
     def __repr__(self):
         return self.resolved_prefix + f'{self.cards}'
-
-
 
 DEFAULT_RULES = Rules(max_tokens=Tokens(8, 4), cards_per_player=None, suits=5, ranks=[3, 2, 2, 2, 1])
 
@@ -123,6 +162,7 @@ class Hanabi:
         self.hands_start = None
         self.tokens = self.rules.max_tokens
         self.log = []
+        self.notes = []
         self.player_states = [None] * len(players)
 
         self.final_player = None
@@ -141,7 +181,8 @@ class Hanabi:
                 if not self.allow_cheats:
                     hands[i] = [card.hidden() for card in hands[i]]
                 player = self.players[self.current_player]
-                self.player_states[i], move = player(self.player_states[i], self.log, hands, self.rules, self.tokens, self.slots, self.discard_pile)
+                self.player_states[i], move, note = player(self.player_states[i], self.log, hands, self.rules, self.tokens, self.slots, self.discard_pile)
+                self.notes.append(note)
                 self.resolve(tuple_to_move(move))
                 if self.is_game_over():
                     return self.score
@@ -159,6 +200,7 @@ class Hanabi:
         for player in self.iterate_players():
             cards = [self.take_card_from_deck_to_hand() for _i in range(self.rules.cards_per_player)]
             self.log.append(ResolvedDraw.create(self.current_player, cards))
+            self.notes.append('deal')
             if any(card is None for card in cards):
                 raise RuntimeError("not enough cards to deal")
         self.hands_start = tuple([hand.copy() for hand in self.hands])
@@ -184,6 +226,7 @@ class Hanabi:
             next_player_hand = self.hands[(self.current_player + 1) % len(self.hands)]
             if not [card for card in next_player_hand if card]:
                 return True
+
         return (self.lives == 0 or self.final_player == self.current_player or
                 all(slot == len(self.rules.ranks) for slot in self.slots))
 
@@ -231,6 +274,7 @@ class Hanabi:
     @property
     def clues(self):
         return self.tokens.clues
+
     @clues.setter
     def clues(self, value: int):
         self.tokens = self.tokens._replace(clues=value)
@@ -242,6 +286,7 @@ class Hanabi:
     @property
     def lives(self):
         return self.tokens.lives
+
     @lives.setter
     def lives(self, value: int):
         self.tokens = self.tokens._replace(lives=value)
@@ -259,8 +304,7 @@ class Hanabi:
     
     def id_to_orig_card(self, card_id):
         return self.deck_start[-1 - card_id]
-    
-    
+
     def log_with_spoilers(self):
         log = []
         for move in self.log:
@@ -346,21 +390,49 @@ class Hanabi:
                 assert False
             max_rank_history.append(max_rank.copy())
         return max_rank_history
-        
 
-    def print_history(self, last='.'):
-        last_args = [None] * 7
+    def print_history(self, last='.', thin=False):
+        def colorize_bg(s, bg):
+            bgcolor, reset = color(',', bg=bg).split(',')
+            return bgcolor + (reset + bgcolor).join(s.split(reset)) + reset
+
+        def format_color(f_str, values, bg):
+            bw_str = f_str.format(*[strip_color(str(v)) for v in values])
+            col_str = bw_str
+            for v in values:
+                col_str = col_str.replace(strip_color(str(v)), str(v))
+            return colorize_bg(col_str, bg=bg)
+
         suits = [Suit(s) for s in range(self.rules.suits)]
         ranks = self.rules.ranks
-        f_str = '{!s:<50}{!s:<42}{!s:<17}{!s:<17}{!s:>2}{!s:>2}{!s:>4}'
-        print(f_str.format('', self.end_mode, suits, ranks, '', '',''))
-        print(f_str.format('Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's'))
-        for move, hand, slots, max_rank, (clues, lives) in zip(
-                self.log, self.hands_history(), self.slots_history(), self.max_rank_history(), self.tokens_history()):
-            this_args = move, hand, slots, max_rank, clues, lives, sum(slots)
-            print(f_str.format(*[last if last and pr==cu else cu for (pr, cu) in zip(last_args, this_args)]))
-            last_args = this_args
+        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {:<40}'
+        titles1 = ['', self.end_mode, suits, ranks, '', '', '', '']
+        titles2 = ['Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note']
+        if thin:
+            f_str = '{:<50}'
 
+        print(format_color(f_str, titles1, bg=235))
+        print(format_color(f_str, titles2, bg=235))
+        last_args = None
+        for (i, move), hand, slots, max_rank, (clues, lives), note in zip(
+                enumerate(self.log), self.hands_history(), self.slots_history(), self.max_rank_history(),
+                self.tokens_history(), self.notes):
+            this_args = slots, max_rank, clues, lives, sum(slots)
+            if last_args is None:
+                last_args = [''] * len(this_args)
+            p_args = [last if last and pr==cu else cu for (pr, cu) in zip(last_args, this_args)]
+            print_t = format_color(
+                    f_str,
+                    [move, hand] + p_args + [note],
+                    bg=232 if (i // len(self.hands)) % 2 == 0 else 235
+            )
+            print(print_t)
+            last_args = this_args
+        if thin:
+            self.describe()
+        else:
+            print("\nDiscard pile:")
+            pprint(self.discard_pile)
 
     def clues_history(self, only_pos=True):
         clues_history = []

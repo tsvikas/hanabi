@@ -15,14 +15,13 @@ def naive_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
 
     hinted_cards = set()
     for move in log[-len(hands):]:
-        if isinstance(move, ResolvedClue):
-            if move.player == my_id:
-                hinted_cards = hinted_cards.union(card.id for card in move.cards)
+        if isinstance(move, ResolvedClue) and move.player == my_id:
+            hinted_cards = hinted_cards.union(card.id for card in move.cards)
 
     # Its better to play than hint
     if hinted_cards:
         play_card = max(hinted_cards)
-        return state, Play.create(play_card)
+        return state, Play.create(play_card), ''
 
     # Its better to hint than discard
     if tokens.clues > 0:
@@ -36,13 +35,13 @@ def naive_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
                     player_ranks -= set([card.data.rank])
             if player_ranks:
                 # its better to go up then sideways
-                return state, Clue.create(player, 'rank', max(player_ranks))
+                return state, Clue.create(player, 'rank', max(player_ranks)), ''
             if player_suits:
-                return state, Clue.create(player, 'suit', player_suits.pop())
+                return state, Clue.create(player, 'suit', player_suits.pop()), ''
 
     # Its better to discard then playing like an idiot
     if tokens.clues < rules.max_tokens.clues:
-        return state, Discard.create(min(my_card_ids))
+        return state, Discard.create(min(my_card_ids)), ''
 
     # If all else fails, play like an idiot
-    return state, Play.create(max(my_card_ids))
+    return state, Play.create(max(my_card_ids)), 'idiot'
