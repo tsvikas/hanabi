@@ -20,14 +20,17 @@ class Suit(int):
     @classmethod
     def from_str(cls, s):
         if len(s) == 1:
-            for c in ['a', 'A']:
+            for c in ['A', 'a']:
                 d = ord(s) - ord(c)
                 if 0 <= d <= 10:
                     return cls(d)
         return cls(int(s))
+    
+    def color(self):
+        return self + 1
 
     def __str__(self):
-        return color(chr(ord("A") + self), fg=self+1)
+        return color(chr(ord("A") + self), fg=self.color())
     __repr__ = __str__
 
 
@@ -39,7 +42,7 @@ class Rank(int):
                 d = ord(s) - ord(c)
                 if 0 <= d <= 10:
                     return cls(d)
-        return cls(int(s) - 1)
+        return cls(int(s) - int('1'))
 
     def __str__(self):
         return chr(ord("1") + self)
@@ -48,7 +51,8 @@ class Rank(int):
 
 class KnownCard(namedtuple('KnownCard', 'suit rank')):
     def __repr__(self):
-        return f':{self.suit}' + color(f'{self.rank}', fg=self.suit+1)
+        fg = self.suit.color() if isinstance(self.suit, Suit) else None
+        return f':{self.suit}' + color(f'{self.rank}', fg=fg)
 
 
 class Card(namedtuple('Card', 'id data')):
@@ -222,8 +226,10 @@ class Hanabi:
         return card.hidden()
 
     def is_game_over(self) -> bool:
-        if self.end_mode == EndMode.endless and not [i for i in self.hands[(self.current_player + 1) % len(self.hands)] if i]:
-            return True
+        if self.end_mode == EndMode.endless:
+            next_player_hand = self.hands[(self.current_player + 1) % len(self.hands)]
+            if not [card for card in next_player_hand if card]:
+                return True
 
         return (self.lives == 0 or self.final_player == self.current_player or
                 all(slot == len(self.rules.ranks) for slot in self.slots))
@@ -389,41 +395,52 @@ class Hanabi:
             max_rank_history.append(max_rank.copy())
         return max_rank_history
 
-    def print_history(self, last='.', thin=False):
+    def print_history(self, last='.', thin=False, print_notes=True, print_clues='full'):
         def colorize_bg(s, bg):
             bgcolor, reset = color(',', bg=bg).split(',')
             return bgcolor + (reset + bgcolor).join(s.split(reset)) + reset
 
         def format_color(f_str, values, bg):
-            bw_str = f_str.format(*[strip_color(v) for v in values])
+            bw_str = f_str.format(*[strip_color(str(v)) for v in values])
             col_str = bw_str
             for v in values:
-                col_str = col_str.replace(strip_color(v), v)
+                col_str = col_str.replace(strip_color(str(v)), str(v))
             return colorize_bg(col_str, bg=bg)
 
-        suits = [Suit(s) for s in range(self.rules.suits)]
-        ranks = self.rules.ranks
-        f_str = '{:<50}{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}  {:<40}'
-        titles1 = ['', str(self.end_mode), str(suits), str(ranks), '', '', '', '']
-        titles2 = ['Move', 'Hand', 'Slots', 'max_rank', 'c', 'l', 's', 'note']
-        if thin:
-            f_str = '{:<50}'
+        f_str = '{:<50}'
+        titles1 = ['']
+        titles2 = ['Move']
+        if not thin:
+            f_str += '{:<42}{:<17}{:<17}{:>2}{:>2}{:>4}'
+            titles1 += [self.end_mode, [Suit(s) for s in range(self.rules.suits)], self.rules.ranks, 
+                       '', '', '']
+            titles2 += ['Hand', 'Slots', 'max_rank', 'c', 'l', 's']
+            if print_notes:
+                f_str += '  {:<30}'
+                titles1 += ['']
+                titles2 += ['note']
+            if print_clues:
+                f_str += '  {:<30}'
+                titles1 += ['']
+                titles2 += ['clues@start']
 
         print(format_color(f_str, titles1, bg=235))
         print(format_color(f_str, titles2, bg=235))
         last_args = None
-        for (i, move), hand, slots, max_rank, (clues, lives), note in zip(
-                enumerate(self.log), self.hands_history(), self.slots_history(), self.max_rank_history(),
-                self.tokens_history(), self.notes):
+        for (i, move), hand, slots, max_rank, (clues, lives), note, clues_h in zip(
+                enumerate(self.log), self.hands_history(), self.slots_history(),
+                self.max_rank_history(), self.tokens_history(),
+                self.notes, self.clues_history(only_pos=(print_clues!='full'))):
             this_args = slots, max_rank, clues, lives, sum(slots)
             if last_args is None:
-                last_args = [''] * len(this_args)
-            p_args = [last if last and pr==cu else str(cu) for (pr, cu) in zip(last_args, this_args)]
-            print_t = format_color(
-                    f_str,
-                    [str(move), str(hand)] + p_args + [note],
-                    bg=232 if (i // len(self.hands)) % 2 == 0 else 235
-            )
+                last_args = [last] * len(this_args)
+            p_args = [move, hand]
+            p_args += [last if last and pr==cu else cu for (pr, cu) in zip(last_args, this_args)]
+            if print_notes:
+                p_args += [note]
+            if print_clues:
+                p_args += [clues_h]
+            print_t = format_color(f_str, p_args, bg=232 if (i // len(self.hands)) % 2 == 0 else 235)
             print(print_t)
             last_args = this_args
         if thin:
@@ -432,6 +449,67 @@ class Hanabi:
             print("\nDiscard pile:")
             pprint(self.discard_pile)
 
+    def clues_history(self, only_pos=True, mask_players=True):
+        clues_history = []
+        clues_rank = dict()
+        clues_suit = dict()
+        for move in self.log:
+            if isinstance(move, ResolvedDraw):
+                pass
+            elif isinstance(move, (ResolvedPlay, ResolvedDiscard)):
+                if move.card.id in clues_rank:
+                    del clues_rank[move.card.id]
+                if move.card.id in clues_suit:
+                    del clues_suit[move.card.id]
+            elif isinstance(move, ResolvedClue):
+                clues = {'suit': clues_suit, 'rank': clues_rank}[move.type]
+                clue_type = {'suit': Suit, 'rank': Rank}[move.type]
+                for card in move.cards:
+                    # this will overwrite previous (negative) clues
+                    clues[card.id] = (True, clue_type(move.param))
+                if not only_pos:
+                    for card in move.cards_neg:
+                        if card.id in clues:
+                            if clues[card.id][0]:  # already got positive clue
+                                pass
+                            else:
+                                clues[card.id][1].add(clue_type(move.param))
+                        else:
+                            clues[card.id] = (False, set([clue_type(move.param)]))
+            else:
+                assert False
+            def get_card_clue(card_id):
+                ret = KnownCard('', '')
+                CHR_NOT = '!'
+                def get_clues(clues_dict, card_id):
+                    card_clues = clues_dict.get(card_id, None)
+                    if card_clues is not None:
+                        if card_clues[0]:  # positive clue
+                            clues = str(card_clues[1])
+                        elif not only_pos:  # negative clue
+                            clues = CHR_NOT + ''.join([str(clue) for clue in sorted(card_clues[1])])
+                        return clues
+                    return None
+                # suit
+                suit_clue = get_clues(clues_suit, card_id)
+                if suit_clue:
+                    ret = ret._replace(suit=suit_clue)
+                # rank
+                rank_clue = get_clues(clues_rank, card_id)
+                if rank_clue:
+                    ret = ret._replace(rank=rank_clue)
+                return ret
+            clued_cards_ids = sorted(list({**clues_rank, **clues_suit}.keys()))
+            clues_history.append([Card(card_id, get_card_clue(card_id))
+                                  for card_id in clued_cards_ids])
+        if mask_players:
+            ret = [[] for _i in self.hands]
+            for clues, hands in zip(clues_history[len(self.hands)-1:-1], self.hands_history()):
+                hand_ids = [card.id for card in hands]
+                ret.append([clue for clue in clues if clue.id in hand_ids])
+            return ret
+        return clues_history
+    
     def describe(self):
         # deck_start
         d0 = 5
