@@ -1,13 +1,13 @@
-from game import Play, Discard, Clue
+from game import Play, Discard, Clue, Move
 from game import Card, Tokens, Rules
 from typing import NamedTuple, List, Tuple
 
 
 def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
                   rules: Rules, tokens: Tokens, slots: List[int],
-                  discard_pile: List[List[int]]) -> Tuple[None, NamedTuple]:
+                  discard_pile: List[List[int]]) -> Tuple[None, Move, str]:
     """
-    Zvika and Ofer's oracle player
+    Tsvika and Ofer's oracle player
     """
     my_id = len(log) % len(hands)
     my_hand = hands[my_id]
@@ -96,6 +96,7 @@ def oracle_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
             if diff is None or card_diff > diff:
                 diff = card_diff
                 throw = card
+    assert throw is not None
 
     # throw by discard
     if tokens.clues < rules.max_tokens.clues:

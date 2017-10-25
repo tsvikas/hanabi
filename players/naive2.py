@@ -1,14 +1,14 @@
-from game import Clue, Play, Discard, ResolvedClue
+from game import Clue, Play, Discard, ResolvedClue, Move
 
 from game import Card, Tokens, Rules
 from typing import NamedTuple, List, Tuple
 
 
 def naive2_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
-                 rules: Rules, tokens: Tokens, slots: List[int],
-                 discard_pile: List[List[int]]) -> Tuple[None, NamedTuple]:
+                  rules: Rules, tokens: Tokens, slots: List[int],
+                  discard_pile: List[List[int]]) -> Tuple[None, Move, str]:
     """
-    Zvika and Ofer's naive player
+    Tsvika and Ofer's naive player
     """
     my_id = len(log) % len(hands)
     my_card_ids = [card.id for card in hands[my_id]]

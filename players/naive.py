@@ -1,14 +1,14 @@
-from game import Clue, Play, Discard, ResolvedClue
+from game import Clue, Play, Discard, ResolvedClue, Move
 
 from game import Card, Tokens, Rules
-from typing import NamedTuple, List, Tuple
+from typing import List, Tuple
 
 
-def naive_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
+def naive_player(state: None, log: List[Move], hands: List[List[Card]],
                  rules: Rules, tokens: Tokens, slots: List[int],
-                 discard_pile: List[List[int]]) -> Tuple[None, NamedTuple]:
+                 discard_pile: List[List[int]]) -> Tuple[None, Move, str]:
     """
-    Zvika and Ofer's naive player
+    Tsvika and Ofer's naive player
     """
     my_id = len(log) % len(hands)
     my_card_ids = [card.id for card in hands[my_id]]
@@ -31,8 +31,8 @@ def naive_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
             player_ranks = set([card.data.rank for card in hands[player]])
             for card in hands[player]:
                 if slots[card.data.suit] != card.data.rank:
-                    player_suits -= set([card.data.suit])
-                    player_ranks -= set([card.data.rank])
+                    player_suits -= {card.data.suit}
+                    player_ranks -= {card.data.rank}
             if player_ranks:
                 # its better to go up then sideways
                 return state, Clue.create(player, 'rank', max(player_ranks)), ''

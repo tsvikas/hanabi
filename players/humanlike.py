@@ -1,5 +1,5 @@
 from collections import namedtuple
-from game import Clue, Play, Discard, ResolvedClue, ResolvedPlay
+from game import Clue, Play, Discard, ResolvedClue
 
 CardInfo = namedtuple('CardInfo', 'positive negative')
 Info = namedtuple('Info', 'suit rank')
@@ -37,13 +37,15 @@ def humanlike_player(state, log, hands, rules, tokens, slots, discard_pile):
                 for card in move.cards:
                     add_card_to_state(cards, card.id)
                     card_ids_in_hint.add(card.id)
-                    cards[card.id] = cards[card.id]._replace(positive=cards[card.id].positive._replace(**{move.type: move.param}))
+                    cards[card.id] = cards[card.id]._replace(
+                        positive=cards[card.id].positive._replace(**{move.type: move.param}))
                 for card in hands[player_id]:
                     if card.id not in card_ids_in_hint:
                         add_card_to_state(cards, card.id)
                         new_negative = getattr(cards[card.id].negative, move.type)
                         new_negative[move.param] = False
-                        cards[card.id] = cards[card.id]._replace(negative=cards[card.id].negative._replace(**{move.type: new_negative}))
+                        cards[card.id] = cards[card.id]._replace(
+                            negative=cards[card.id].negative._replace(**{move.type: new_negative}))
 
         # Consolidate negatives in hand
         for card_id in hinted_cards:
@@ -129,10 +131,10 @@ def humanlike_player(state, log, hands, rules, tokens, slots, discard_pile):
     def is_play_legal(suit, rank, _slots):
         return _slots[suit] == rank
 
-    def create_clue(my_id, _player, type, param):
-        cards = [card for card in hands[_player] if getattr(card.data, type) == param]
-        cards_neg = [card for card in hands[_player] if getattr(card.data, type) != param]
-        return ResolvedClue.create(my_id, _player, type, param, cards, cards_neg)
+    def create_clue(my_id, _player, clue_type, param):
+        cards = [card for card in hands[_player] if getattr(card.data, clue_type) == param]
+        cards_neg = [card for card in hands[_player] if getattr(card.data, clue_type) != param]
+        return ResolvedClue.create(my_id, _player, clue_type, param, cards, cards_neg)
 
     # Start
 
@@ -146,7 +148,7 @@ def humanlike_player(state, log, hands, rules, tokens, slots, discard_pile):
 
     card_to_play = should_play_card(state, my_card_ids, state_actions, slots, discard_pile)
 
-    if card_to_play is not None:   # Its better to play than hint
+    if card_to_play is not None:  # Its better to play than hint
         return state, Play.create(card_to_play), 'Played card'
 
     if tokens.clues > 0:  # Its better to hint than discard
@@ -204,16 +206,19 @@ def humanlike_player(state, log, hands, rules, tokens, slots, discard_pile):
                     if clue.card.data.rank > highest_rank:
                         highest_rank = clue.card.data.rank
                         given_clue = clue
-                return state, Clue.create(given_clue.player, given_clue.type, getattr(given_clue.card.data, given_clue.type)), 'Gave actionable clue'
+                return state, Clue.create(given_clue.player, given_clue.type,
+                                          getattr(given_clue.card.data, given_clue.type)), 'Gave actionable clue'
 
     if tokens.clues < rules.max_tokens.clues:  # Its better to discard then playing like an idiot
         protected_cards = set()
         for card_id in my_card_ids:
             # Throw away useless cards
-            if state[card_id].positive.suit is not None and not is_playable_suit(state[card_id].positive.suit, slots, discard_pile):
+            if state[card_id].positive.suit is not None and not is_playable_suit(state[card_id].positive.suit, slots,
+                                                                                 discard_pile):
                 return state, Discard.create(card_id), 'Discarded unplayable suit'
 
-            if state[card_id].positive.rank is not None and all([slot<state[card_id].positive.rank for slot in slots]):
+            if state[card_id].positive.rank is not None and all(
+                    [slot < state[card_id].positive.rank for slot in slots]):
                 return state, Discard.create(card_id), 'Discarded Unplayable rank'
 
             if state[card_id].positive.suit is not None and state[card_id].positive.rank is not None:
@@ -221,15 +226,15 @@ def humanlike_player(state, log, hands, rules, tokens, slots, discard_pile):
                     return state, Discard.create(card_id), 'Discarded unplayable known card'
 
                 # Don't throw away lone copies
-                avaiable_copies = rules.ranks[state[card_id].positive.rank]
+                available_copies = rules.ranks[state[card_id].positive.rank]
                 discarded_copies = discard_pile[state[card_id].positive.suit][state[card_id].positive.rank]
-                if avaiable_copies - discarded_copies == 1:
+                if available_copies - discarded_copies == 1:
                     protected_cards.add(card_id)
 
             # Don't throw away 5s
             if state[card_id].positive.rank is not None:
-                avaiable_copies = rules.ranks[state[card_id].positive.rank]
-                if avaiable_copies == 1:
+                available_copies = rules.ranks[state[card_id].positive.rank]
+                if available_copies == 1:
                     protected_cards.add(card_id)
 
         throwaways = set(my_card_ids) - protected_cards
@@ -240,7 +245,7 @@ def humanlike_player(state, log, hands, rules, tokens, slots, discard_pile):
 
     if tokens.clues > 0:
         # give random clue to the player playing before you so the other players may fix it
-        player = (my_id -1) % len(hands)
+        player = (my_id - 1) % len(hands)
         if hands[player]:
             highest_rank_in_hand = sorted([card.data.rank for card in hands[player]])[-1]
             return state, Clue.create(player, 'rank', highest_rank_in_hand), 'Gave random clue'

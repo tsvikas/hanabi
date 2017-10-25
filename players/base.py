@@ -1,6 +1,6 @@
 import random
 from pprint import pprint
-from game import Clue, Play, Discard
+from game import Clue, Play, Discard, Move
 
 from game import Card, Tokens, Rules, Suit, Rank
 from typing import NamedTuple, List, Tuple, Callable
@@ -15,7 +15,7 @@ def make_io_player(name: str) -> Callable:
     """
     def io_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
                   rules: Rules, tokens: Tokens, slots: List[int],
-                  discard_pile: List[List[int]]) -> Tuple[None, NamedTuple]:
+                  discard_pile: List[List[int]]) -> Tuple[None, Move, str]:
         print(f"{name}'s turn")
         pprint(log[-len(hands):])
         pprint(hands)
@@ -48,9 +48,9 @@ def make_io_player(name: str) -> Callable:
 
 def random_player(state: None, log: List[NamedTuple], hands: List[List[Card]],
                   rules: Rules, tokens: Tokens, slots: List[int],
-                  discard_pile: List[List[int]]) -> Tuple[None, NamedTuple]:
+                  discard_pile: List[List[int]]) -> Tuple[None, Move, str]:
     """
-    Zvika and Ofer's random player
+    Tsvika and Ofer's random player
 
     Usage:
         h = Hanabi([random_player] * 3)
